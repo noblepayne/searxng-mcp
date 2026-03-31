@@ -1,8 +1,7 @@
-# Babashka cache
+# Clojure Dev Things
 .babashka/
-
-# MCP tools for clojure
-.clojure-mcp
+.clj-kondo/.cache/
+.clojure-mcp/
 
 # Nix
 result

@@ -332,9 +332,13 @@
 
 (defn handle-mcp [request]
   (try
-    (let [body (when-let [b (:body request)]
-                 (try (json/parse-string b true)
-                      (catch Exception _ nil)))
+    (let [body-stream (:body request)
+          body-raw (cond
+                     (instance? java.io.InputStream body-stream) (slurp body-stream)
+                     (string? body-stream) body-stream
+                     :else nil)
+          body (try (when body-raw (json/parse-string body-raw true))
+                    (catch Exception _ nil))
           config (get-config)
           session-id (find-header request "Mcp-Session-Id")
           method (get body :method)]
