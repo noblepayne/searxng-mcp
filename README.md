@@ -116,6 +116,17 @@ Entry point (-main)
 - Implement `section`, `paragraph_range`, `read_headings` params for `read_url`/`read_urls`
 - Consider `search_and_read` composite tool (search + auto-read top N results)
 
+## Inspiration
+
+Built in the same pattern as the other J.O.E. Babashka MCP servers:
+
+- [art19-mcp](https://github.com/JupiterBroadcasting/art19-mcp) — Streamable HTTP MCP server for the ART19 API
+- [podhome-mcp](https://github.com/JupiterBroadcasting/podhome-mcp) — Streamable HTTP MCP server for the Podhome API
+- [mcp-injector](https://github.com/noblepayne/mcp-injector) — LLM gateway that consumes MCP servers
+
+The URL reader's 3-tier fallback chain (markdown.new → Jina Reader → local) was
+inspired by the approach in [ihor-sokoliuk/mcp-searxng](https://github.com/ihor-sokoliuk/mcp-searxng).
+
 ## License
 
 MIT
