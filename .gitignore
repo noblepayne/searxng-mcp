@@ -1,6 +1,9 @@
 # Babashka cache
 .babashka/
 
+# MCP tools for clojure
+.clojure-mcp
+
 # Nix
 result
 result-*
