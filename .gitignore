@@ -1,0 +1,19 @@
+# Babashka cache
+.babashka/
+
+# Nix
+result
+result-*
+
+# Editor
+*.swp
+*~
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Local config (if any)
+.env
+.env.local

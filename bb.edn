@@ -1,0 +1,32 @@
+{:paths ["."]
+ :deps {cheshire/cheshire {:mvn/version "5.13.0"}}
+ :tasks
+ {serve
+  {:doc "Start the SearXNG MCP server (SEARXNG_MCP_PORT env or OS-assigned)"
+   :task (shell "bb searxng_mcp.bb")}
+  run {:doc "Alias for serve"
+       :task (run 'serve)
+       :override-builtin true}
+  start
+  {:doc "Start on port 3009 (or SEARXNG_MCP_PORT) for local dev"
+   :task
+   (shell
+    {:env
+     (merge
+      (into {} (System/getenv))
+      {"SEARXNG_MCP_PORT" (or (System/getenv "SEARXNG_MCP_PORT") "3009")})}
+    "bb searxng_mcp.bb")}
+  test
+  {:doc "Run integration tests"
+   :task (shell "bb tests/test_searxng_mcp.clj")}
+  lint
+  {:doc "Lint with clj-kondo"
+   :task (shell "clj-kondo --lint searxng_mcp.bb tests/")}
+  health
+  {:doc "Health check against running server (set SEARXNG_MCP_PORT)"
+   :task
+   (shell
+    (str
+     "curl -sf http://127.0.0.1:"
+     (or (System/getenv "SEARXNG_MCP_PORT") "3009")
+     "/health | jq ."))}}}
