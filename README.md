@@ -1,6 +1,8 @@
 # SearXNG MCP Server
 
-Babashka Streamable HTTP MCP server for SearXNG web search and URL-to-markdown conversion.
+Babashka Streamable HTTP MCP server for [SearXNG](https://github.com/searxng/searxng) web search and URL-to-markdown conversion.
+
+[SearXNG](https://searxng.org) is a free, privacy-respecting metasearch engine that aggregates results from up to 250 search services without tracking or profiling users.
 
 ## Quick Start
 
@@ -117,12 +119,6 @@ Entry point (-main)
 - Consider `search_and_read` composite tool (search + auto-read top N results)
 
 ## Inspiration
-
-Built in the same pattern as the other J.O.E. Babashka MCP servers:
-
-- [art19-mcp](https://github.com/JupiterBroadcasting/art19-mcp) — Streamable HTTP MCP server for the ART19 API
-- [podhome-mcp](https://github.com/JupiterBroadcasting/podhome-mcp) — Streamable HTTP MCP server for the Podhome API
-- [mcp-injector](https://github.com/noblepayne/mcp-injector) — LLM gateway that consumes MCP servers
 
 The URL reader's 3-tier fallback chain (markdown.new → Jina Reader → local) was
 inspired by the approach in [ihor-sokoliuk/mcp-searxng](https://github.com/ihor-sokoliuk/mcp-searxng).
