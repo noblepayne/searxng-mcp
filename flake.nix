@@ -170,7 +170,7 @@
                   "SEARXNG_MCP_HOST=${cfg.host}"
                   "SEARXNG_URL=${cfg.searxngUrl}"
                 ]
-                ++ lib.optionals cfg.jinaApiKeyFile [
+                ++ lib.optionals (cfg.jinaApiKeyFile != null) [
                   "EnvironmentFile=${cfg.jinaApiKeyFile}"
                 ];
 
