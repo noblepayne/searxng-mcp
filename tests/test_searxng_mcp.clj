@@ -120,6 +120,33 @@
       ;; Should have numbered results
       (is (re-find #"\d+\." content)))))
 
+(deftest search-string-max-results-test
+  (testing "search coerces string max_results to integer"
+    (let [sid (initialize)
+          resp (call-tool sid "search" {:query "hello world" :max_results "3"})]
+      (is (= 200 (:status resp)))
+      (let [content (get-in resp [:body :result :content 0 :text])]
+        (is (string? content))
+        (is (str/includes? content "# Search:"))))))
+
+(deftest search-string-pageno-test
+  (testing "search coerces string pageno to integer"
+    (let [sid (initialize)
+          resp (call-tool sid "search" {:query "test" :pageno "1"})]
+      (is (= 200 (:status resp))))))
+
+(deftest search-invalid-string-max-results-test
+  (testing "search with garbage string max_results falls to default (5)"
+    (let [sid (initialize)
+          resp (call-tool sid "search" {:query "test" :max_results "abc"})]
+      (is (= 200 (:status resp))))))
+
+(deftest search-float-string-max-results-test
+  (testing "search coerces float string max_results to integer"
+    (let [sid (initialize)
+          resp (call-tool sid "search" {:query "test" :max_results "3.14"})]
+      (is (= 200 (:status resp))))))
+
 ;; ─── Read URL Tool ───────────────────────────────────────────────────────────
 
 (deftest read-url-missing-url-test
@@ -144,6 +171,15 @@
           content (get-in resp [:body :result :content 0 :text])]
       (is (<= (count content) 200)))))
 
+(deftest read-url-string-max-length-test
+  (testing "read_url coerces string max_length to integer"
+    (let [sid (initialize)
+          resp (call-tool sid "read_url" {:url "https://example.com" :max_length "100"})]
+      (is (= 200 (:status resp)))
+      (let [content (get-in resp [:body :result :content 0 :text])]
+        (is (string? content))
+        (is (str/includes? content "Example Domain"))))))
+
 ;; ─── Read URLs Tool (Batch) ──────────────────────────────────────────────────
 
 (deftest read-urls-basic-test
@@ -165,6 +201,39 @@
                                                   "https://example.com"
                                                   "https://example.com"
                                                   "https://example.com"]})]
+      (is (get-in resp [:body :error])))))
+
+(deftest read-urls-string-json-array-test
+  (testing "read_urls coerces JSON string urls to vector"
+    (let [sid (initialize)
+          resp (call-tool sid "read_urls" {:urls "[\"https://example.com\"]"})]
+      (is (= 200 (:status resp)))
+      (let [content (get-in resp [:body :result :content 0 :text])]
+        (is (string? content))
+        (is (str/includes? content "Example Domain"))))))
+
+(deftest read-urls-single-string-url-test
+  (testing "read_urls coerces single URL string to vector"
+    (let [sid (initialize)
+          resp (call-tool sid "read_urls" {:urls "https://example.com"})]
+      (is (= 200 (:status resp)))
+      (let [content (get-in resp [:body :result :content 0 :text])]
+        (is (string? content))
+        (is (str/includes? content "Example Domain"))))))
+
+(deftest read-urls-invalid-json-string-test
+  (testing "read_urls with invalid JSON string urls treats as single URL (fetch fails)"
+    (let [sid (initialize)
+          resp (call-tool sid "read_urls" {:urls "{invalid json}"})]
+      ;; Not a JSON array → treated as single URL string → wrapped in vector → fetch fails
+      (is (= 200 (:status resp)))
+      (let [content (get-in resp [:body :result :content 0 :text])]
+        (is (str/includes? content "Error"))))))
+
+(deftest read-urls-empty-string-test
+  (testing "read_urls with empty string urls returns error"
+    (let [sid (initialize)
+          resp (call-tool sid "read_urls" {:urls ""})]
       (is (get-in resp [:body :error])))))
 
 ;; ─── Unknown Tool ────────────────────────────────────────────────────────────

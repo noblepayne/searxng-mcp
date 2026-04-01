@@ -55,6 +55,40 @@
         (get headers (keyword low-name))
         (some (fn [[k v]] (when (= low-name (str/lower-case (name k))) v)) headers))))
 
+;; ─── Type Coercion ───────────────────────────────────────────────────────────
+;; LLMs frequently send integers as strings ("10" instead of 10) and arrays as
+;; JSON-encoded strings ("[\"a\",\"b\"]" instead of ["a","b"]). Coerce defensively.
+
+(defn ->int
+  "Coerce v to integer. Handles strings, floats, returns nil for nil or garbage."
+  [v]
+  (cond
+    (nil? v) nil
+    (integer? v) v
+    (string? v) (let [trimmed (str/trim v)]
+                  (or (try (Integer/parseInt trimmed)
+                           (catch Exception _ nil))
+                      (try (int (Double/parseDouble trimmed))
+                           (catch Exception _ nil))))
+    (float? v) (int v)
+    :else nil))
+
+(defn ->vector
+  "Coerce v to a vector. Handles vectors, lists, JSON-encoded strings, single strings."
+  [v]
+  (cond
+    (nil? v) nil
+    (vector? v) v
+    (sequential? v) (vec v)
+    (string? v)
+    (let [trimmed (str/trim v)]
+      (cond
+        (str/blank? trimmed) nil
+        (str/starts-with? trimmed "[")
+        (try (vec (json/parse-string trimmed true)) (catch Exception _ nil))
+        :else [trimmed]))
+    :else nil))
+
 ;; ─── SearXNG Client ─────────────────────────────────────────────────────────
 
 (defn searxng-search! [{:keys [query max_results language safesearch
@@ -149,8 +183,12 @@
     (if-not result
       {:error true :message (str "Failed to fetch URL: " url)}
       (let [content (if (string? result) result (str result))
-            truncated (if start_char (subs content (min start_char (count content))) content)
-            final (if max_length (subs truncated 0 (min max_length (count truncated))) truncated)]
+            truncated (if (and start_char (pos? start_char))
+                        (subs content (min start_char (count content)))
+                        content)
+            final (if (and max_length (pos? max_length))
+                    (subs truncated 0 (min max_length (count truncated)))
+                    truncated)]
         {:url url
          :content final
          :length (count final)}))))
@@ -159,18 +197,24 @@
 
 (defn tool-search [args config]
   (let [{:keys [query max_results language safesearch
-                time_range categories engines pageno]} args]
+                time_range categories engines pageno]} args
+        max_results (->int max_results)
+        safesearch (->int safesearch)
+        pageno (->int pageno)
+        categories (->vector categories)
+        engines (->vector engines)]
     (when (str/blank? query)
-      (throw (ex-info "query is required" {:type :bad-request})))
+      (throw (ex-info "query is required and must be a non-empty string. Example: {\"query\": \"latest news\"}"
+                      {:type :bad-request})))
     (let [result (searxng-search!
                   {:query query
-                   :max_results (or max_results 5)
+                   :max_results (min (if (nil? max_results) 5 max_results) 20)
                    :language language
-                   :safesearch (or safesearch 1)
+                   :safesearch (if (nil? safesearch) 1 safesearch)
                    :time_range time_range
                    :categories categories
                    :engines engines
-                   :pageno (or pageno 1)}
+                   :pageno (if (nil? pageno) 1 pageno)}
                   config)
           results (:results result)]
       (if (:error result)
@@ -192,10 +236,13 @@
                     "> Use `read_urls` to fetch multiple URLs at once."]))))))
 
 (defn tool-read-url [args _config]
-  (let [{:keys [url max_length start_char section paragraph_range read_headings]} args]
+  (let [{:keys [url max_length start_char section paragraph_range read_headings]} args
+        max_length (->int max_length)
+        start_char (->int start_char)]
     (when (str/blank? url)
-      (throw (ex-info "url is required" {:type :bad-request})))
-    (let [result (read-url url {:max_length (or max_length 5000)
+      (throw (ex-info "url is required and must be a non-empty string. Example: {\"url\": \"https://example.com\"}"
+                      {:type :bad-request})))
+    (let [result (read-url url {:max_length (if (nil? max_length) 5000 max_length)
                                 :start_char start_char
                                 :section section
                                 :paragraph_range paragraph_range
@@ -205,15 +252,21 @@
         (str "## " (:url result) "\n\n" (:content result))))))
 
 (defn tool-read-urls [args _config]
-  (let [{:keys [urls max_length start_char section paragraph_range read_headings]} args]
-    (when (or (not (vector? urls)) (empty? urls))
-      (throw (ex-info "urls must be a non-empty array" {:type :bad-request})))
+  (let [{:keys [urls max_length start_char section paragraph_range read_headings]} args
+        urls (->vector urls)
+        max_length (->int max_length)
+        start_char (->int start_char)]
+    (when-not (and urls (seq urls))
+      (throw (ex-info (str "urls must be a non-empty array of URL strings. "
+                           "Pass as JSON array: [\"https://example.com\"]. "
+                           "Do NOT encode as a string.")
+                      {:type :bad-request})))
     (when (> (count urls) 5)
       (throw (ex-info "Maximum 5 URLs per batch" {:type :bad-request})))
     (let [results (mapv
                    (fn [url]
                      (try
-                       (let [result (read-url url {:max_length (or max_length 5000)
+                       (let [result (read-url url {:max_length (if (nil? max_length) 5000 max_length)
                                                    :start_char start_char
                                                    :section section
                                                    :paragraph_range paragraph_range
