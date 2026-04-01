@@ -80,7 +80,7 @@ Add to `mcp-servers.edn`:
 {:servers
  {:searxng
   {:url   "http://127.0.0.1:3009/mcp"
-   :tools ["search" "read_url" "read_urls"]}}}
+   :tools ["search" "read_url" "read_urls" "http_request"]}}}
 ```
 
 ## Tools
@@ -125,6 +125,15 @@ Fetch multiple URLs (up to 5) in one call. Saves agent round trips. All URLs sha
 | `section` | string | — | Apply to all URLs |
 | `paragraph_range` | string | — | Apply to all URLs |
 | `read_headings` | bool | false | Apply to all URLs |
+
+### `http_request`
+
+Make a raw HTTP GET request. Returns status code, content-type, and raw body as-is — no markdown conversion. Use for APIs, JSON endpoints, source files, or any content where you need the raw response. For reading webpages, use `read_url` instead.
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `url` | string | required | URL to fetch |
+| `max_length` | int | 50000 | Max characters to return for body |
 
 ## Architecture
 

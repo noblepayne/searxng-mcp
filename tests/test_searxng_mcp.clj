@@ -83,15 +83,16 @@
 ;; ─── Tools List ──────────────────────────────────────────────────────────────
 
 (deftest tools-list-test
-  (testing "tools/list returns all 3 tools"
+  (testing "tools/list returns all 4 tools"
     (let [sid (initialize)
           resp (list-tools sid)]
       (is (= 200 (:status resp)))
       (let [tool-names (mapv :name (get-in resp [:body :result :tools]))]
-        (is (= 3 (count tool-names)))
+        (is (= 4 (count tool-names)))
         (is (contains? (set tool-names) "search"))
         (is (contains? (set tool-names) "read_url"))
-        (is (contains? (set tool-names) "read_urls"))))))
+        (is (contains? (set tool-names) "read_urls"))
+        (is (contains? (set tool-names) "http_request"))))))
 
 ;; ─── Search Tool ─────────────────────────────────────────────────────────────
 
@@ -235,6 +236,68 @@
     (let [sid (initialize)
           resp (call-tool sid "read_urls" {:urls ""})]
       (is (get-in resp [:body :error])))))
+
+;; ─── HTTP Request Tool ────────────────────────────────────────────────────────
+
+(deftest http-request-missing-url-test
+  (testing "http_request without url returns error"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {})]
+      (is (get-in resp [:body :error])))))
+
+(deftest http-request-fetch-example-com-test
+  (testing "http_request GET returns raw response"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {:url "https://example.com"})]
+      (is (= 200 (:status resp)))
+      (let [text (get-in resp [:body :result :content 0 :text])
+            parsed (json/parse-string text true)]
+        (is (= 200 (:status parsed)))
+        (is (str/includes? (:content-type parsed) "text/html"))
+        (is (str/includes? (:body parsed) "Example Domain"))))))
+
+(deftest http-request-fetch-json-api-test
+  (testing "http_request GET returns JSON from API"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {:url "https://httpbin.org/get"})]
+      (is (= 200 (:status resp)))
+      (let [text (get-in resp [:body :result :content 0 :text])
+            parsed (json/parse-string text true)]
+        (is (= 200 (:status parsed)))
+        (is (str/includes? (:content-type parsed) "application/json"))))))
+
+(deftest http-request-respects-max-length-test
+  (testing "http_request respects max_length"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {:url "https://example.com" :max_length 100})
+          text (get-in resp [:body :result :content 0 :text])
+          parsed (json/parse-string text true)]
+      (is (<= (count (:body parsed)) 100)))))
+
+(deftest http-request-404-url-test
+  (testing "http_request returns 404 status for non-existent page"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {:url "https://example.com/nonexistent-page-xyz"})]
+      (is (= 200 (:status resp)))
+      (let [text (get-in resp [:body :result :content 0 :text])
+            parsed (json/parse-string text true)]
+        ;; Tool succeeds even when HTTP returns 404 — status reflects the HTTP response
+        (is (= 404 (:status parsed)))))))
+
+(deftest http-request-invalid-url-test
+  (testing "http_request with invalid URL returns error"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {:url "not-a-valid-url"})]
+      (is (get-in resp [:body :error])))))
+
+(deftest http-request-string-max-length-test
+  (testing "http_request coerces string max_length to integer"
+    (let [sid (initialize)
+          resp (call-tool sid "http_request" {:url "https://example.com" :max_length "50"})]
+      (is (= 200 (:status resp)))
+      (let [text (get-in resp [:body :result :content 0 :text])
+            parsed (json/parse-string text true)]
+        (is (<= (count (:body parsed)) 50))))))
 
 ;; ─── Unknown Tool ────────────────────────────────────────────────────────────
 

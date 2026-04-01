@@ -251,6 +251,29 @@
         result
         (str "## " (:url result) "\n\n" (:content result))))))
 
+(defn tool-http-request [args _config]
+  (let [{:keys [url max_length]} args
+        max_length (->int max_length)]
+    (when (str/blank? url)
+      (throw (ex-info "url is required and must be a non-empty string. Example: {\"url\": \"https://api.example.com/data\"}"
+                      {:type :bad-request})))
+    (try
+      (let [resp (http-client/get url {:throw false :timeout 15000})
+            status (:status resp)
+            headers (:headers resp)
+            content-type (or (get headers "content-type")
+                             (get headers :content-type)
+                             "application/octet-stream")
+            raw-body (:body resp)
+            truncated (if (and max_length (pos? max_length))
+                        (subs raw-body 0 (min max_length (count raw-body)))
+                        raw-body)]
+        {:status status
+         :content-type content-type
+         :body truncated})
+      (catch Exception e
+        {:error true :message (str "Failed to fetch URL: " (.getMessage e))}))))
+
 (defn tool-read-urls [args _config]
   (let [{:keys [urls max_length start_char section paragraph_range read_headings]} args
         urls (->vector urls)
@@ -307,15 +330,22 @@
                   :required ["url"]}}
 
    {:name "read_urls"
-    :description "Fetch multiple URLs (up to 5) and convert each to markdown in a single batch call. Saves round trips compared to calling read_url multiple times. Each URL uses the same fallback chain: markdown.new → Jina Reader → local HTML parser."
-    :inputSchema {:type "object"
-                  :properties {:urls {:type "array" :items {:type "string"} :description "Array of URLs to fetch (max 5)"}
-                               :max_length {:type "integer" :description "Maximum characters per URL (default: 5000)"}
-                               :start_char {:type "integer" :description "Character offset to start from (default: 0)"}
-                               :section {:type "string" :description "Extract content under a specific heading (applies to all URLs)"}
-                               :paragraph_range {:type "string" :description "Range of paragraphs to extract (applies to all URLs)"}
-                               :read_headings {:type "boolean" :description "If true, only return headings (applies to all URLs)"}}
-                  :required ["urls"]}}])
+     :description "Fetch multiple URLs (up to 5) and convert each to markdown in a single batch call. Saves round trips compared to calling read_url multiple times. Each URL uses the same fallback chain: markdown.new → Jina Reader → local HTML parser."
+     :inputSchema {:type "object"
+                   :properties {:urls {:type "array" :items {:type "string"} :description "Array of URLs to fetch (max 5)"}
+                                :max_length {:type "integer" :description "Maximum characters per URL (default: 5000)"}
+                                :start_char {:type "integer" :description "Character offset to start from (default: 0)"}
+                                :section {:type "string" :description "Extract content under a specific heading (applies to all URLs)"}
+                                :paragraph_range {:type "string" :description "Range of paragraphs to extract (applies to all URLs)"}
+                                :read_headings {:type "boolean" :description "If true, only return headings (applies to all URLs)"}}
+                   :required ["urls"]}}
+
+    {:name "http_request"
+     :description "Make a raw HTTP GET request and return the response as-is (status code, content-type header, and raw body). Use for APIs, JSON endpoints, source files, or any content where you need the raw response instead of markdown. NOT for reading webpages — use read_url for that."
+     :inputSchema {:type "object"
+                   :properties {:url {:type "string" :description "URL to fetch (required)"}
+                                :max_length {:type "integer" :description "Maximum characters to return for body (default: 50000)"}}
+                   :required ["url"]}}])
 
 ;; ─── Tool Dispatch ──────────────────────────────────────────────────────────
 
@@ -325,6 +355,7 @@
       "search" (tool-search args config)
       "read_url" (tool-read-url args config)
       "read_urls" (tool-read-urls args config)
+      "http_request" (tool-http-request args config)
       {:error true :message (str "Unknown tool: " name)})
     (catch clojure.lang.ExceptionInfo e
       (let [data (ex-data e)]

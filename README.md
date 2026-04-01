@@ -26,19 +26,20 @@ bb health    # Health check
 | `SEARXNG_MCP_HOST` | `127.0.0.1` | Host to bind to |
 | `JINA_API_KEY` | _(none)_ | Optional Jina Reader API key for authenticated URL fetching |
 
-## Available Tools (3)
+## Available Tools (4)
 
 | Tool | Description |
 |------|-------------|
 | `search` | Search the web via SearXNG, returns formatted markdown results with title, URL, snippet, engine, and score |
 | `read_url` | Fetch any URL and convert to LLM-friendly markdown (3-tier fallback: markdown.new → Jina Reader → local HTML parser) |
 | `read_urls` | Batch fetch up to 5 URLs in one call, saving agent round trips |
+| `http_request` | Raw HTTP GET — returns status, content-type, and raw body (no markdown conversion). Use for APIs, JSON endpoints, source files |
 
 ## URL Reader Fallback Chain
 
 1. **markdown.new** — `GET https://markdown.new/api/convert?url=<url>` (500/day per IP, no key)
-2. **Jina Reader** — `GET https://r.jina.ai/<url>` (free tier, optional API key for higher limits)
-3. **Local regex stripper** — strips script/style, converts basic HTML to markdown (unlimited, always works)
+1. **Jina Reader** — `GET https://r.jina.ai/<url>` (free tier, optional API key for higher limits)
+1. **Local regex stripper** — strips script/style, converts basic HTML to markdown (unlimited, always works)
 
 ## mcp-injector Integration
 
@@ -48,7 +49,7 @@ Add to `mcp-servers.edn`:
 {:servers
  {:searxng
   {:url "http://127.0.0.1:3009/mcp"
-   :tools ["search" "read_url" "read_urls"]}}}
+   :tools ["search" "read_url" "read_urls" "http_request"]}}}
 ```
 
 ## Nix
