@@ -57,6 +57,7 @@ Config via env vars:
 ```bash
 export SEARXNG_URL="http://prism:8888"   # your SearXNG instance
 export SEARXNG_MCP_PORT="3009"           # server port (default: 3009)
+export SEARXNG_MCP_HOST="127.0.0.1"      # host to bind (default: 127.0.0.1)
 export JINA_API_KEY="..."                # optional, for authenticated Jina Reader
 ```
 
@@ -103,7 +104,7 @@ Query SearXNG metasearch engine. Returns results as formatted markdown (agent-op
 
 ### `read_url`
 
-Fetch a URL and convert to LLM-friendly markdown. Uses 3-tier fallback: markdown.new → Jina Reader → local HTML parser.
+Fetch a URL and convert to LLM-friendly markdown. Uses 4-tier fallback: markdown.new → Jina Reader → skim → local HTML parser.
 
 | Param | Type | Default | Description |
 |---|---|---|---|
