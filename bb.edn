@@ -1,5 +1,7 @@
 {:paths ["."]
- :deps {cheshire/cheshire {:mvn/version "5.13.0"}}
+ :deps {cheshire/cheshire {:mvn/version "5.13.0"}
+        io.github.noblepayne/skim {:git/url "https://github.com/noblepayne/skim.git"
+                                   :sha "16db8f14f893ed7055452d7d9b5e822b3ad08f2f"}}
  :tasks
  {serve
   {:doc "Start the SearXNG MCP server (SEARXNG_MCP_PORT env or OS-assigned)"
@@ -22,11 +24,16 @@
   lint
   {:doc "Lint with clj-kondo"
    :task (shell "clj-kondo --lint searxng_mcp.bb tests/")}
-  health
-  {:doc "Health check against running server (set SEARXNG_MCP_PORT)"
-   :task
-   (shell
-    (str
-     "curl -sf http://127.0.0.1:"
-     (or (System/getenv "SEARXNG_MCP_PORT") "3009")
-     "/health | jq ."))}}}
+   health
+   {:doc "Health check against running server (set SEARXNG_MCP_PORT)"
+    :task
+    (shell
+     (str
+      "curl -sf http://127.0.0.1:"
+      (or (System/getenv "SEARXNG_MCP_PORT") "3009")
+      "/health | jq ."))}
+   bundle
+   {:doc "Generate and carve uberscript"
+    :task (do
+            (shell "bb uberscript searxng_mcp_bundled.clj -m searxng-mcp")
+            (shell "bb -Sdeps '{:deps {borkdude/carve {:git/url \"https://github.com/borkdude/carve.git\" :sha \"fdd1d0bc432f63db69e3a72167ef5e46f10dfba7}}}' -m carve.main --opts '{:paths [\"searxng_mcp_bundled.clj\"] :aggressive true :silent true}'"))}}}

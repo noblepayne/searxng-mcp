@@ -24,13 +24,13 @@
           nativeBuildInputs = [bb];
 
           unpackPhase = "cp -r $src/* ./";
-          buildPhase = "chmod +x searxng_mcp.bb";
+          buildPhase = "chmod +x searxng_mcp_bundled.clj";
           installPhase = ''
             mkdir -p $out/bin $out/share/searxng-mcp
-            cp searxng_mcp.bb $out/share/searxng-mcp/
+            cp searxng_mcp_bundled.clj $out/share/searxng-mcp/
             cat > $out/bin/searxng-mcp << 'EOF'
             #!/usr/bin/env bash
-            exec ${bb}/bin/bb ${placeholder "out"}/share/searxng-mcp/searxng_mcp.bb "$@"
+            exec ${bb}/bin/bb ${placeholder "out"}/share/searxng-mcp/searxng_mcp_bundled.clj "$@"
             EOF
             chmod +x $out/bin/searxng-mcp
           '';
@@ -50,7 +50,7 @@
         };
 
         devShells.default = pkgs.mkShell {
-          buildInputs = [bb pkgs.clj-kondo pkgs.jq];
+          buildInputs = [bb pkgs.clj-kondo pkgs.jq pkgs.carve];
           shellHook = ''
             echo "searxng-mcp dev shell"
             echo "  bb run      — start server (OS-assigned port)"
@@ -78,13 +78,13 @@
           src = ./.;
           nativeBuildInputs = [bb];
           unpackPhase = "cp -r $src/* ./";
-          buildPhase = "chmod +x searxng_mcp.bb";
+          buildPhase = "chmod +x searxng_mcp_bundled.clj";
           installPhase = ''
             mkdir -p $out/bin $out/share/searxng-mcp
-            cp searxng_mcp.bb $out/share/searxng-mcp/
+            cp searxng_mcp_bundled.clj $out/share/searxng-mcp/
             cat > $out/bin/searxng-mcp << EOF
             #!/usr/bin/env bash
-            exec ${bb}/bin/bb $out/share/searxng-mcp/searxng_mcp.bb "\$@"
+            exec ${bb}/bin/bb $out/share/searxng-mcp/searxng_mcp_bundled.clj "\$@"
             EOF
             chmod +x $out/bin/searxng-mcp
           '';

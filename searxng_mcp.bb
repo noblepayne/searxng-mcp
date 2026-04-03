@@ -13,7 +13,8 @@
   (:require [org.httpkit.server :as http]
             [babashka.http-client :as http-client]
             [cheshire.core :as json]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [skim.core :as skim]))
 
 ;; ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -169,6 +170,13 @@
         (:body resp)))
     (catch Exception _ nil)))
 
+(defn read-url-skim [url]
+  (try
+    (let [resp (http-client/get url {:throw false :timeout 10000})]
+      (when (= 200 (:status resp))
+        (:markdown (skim/html->markdown (:body resp)))))
+    (catch Exception _ nil)))
+
 (defn read-url-local [url]
   (try
     (let [resp (http-client/get url {:throw false :timeout 10000})]
@@ -179,6 +187,7 @@
 (defn read-url [url {:keys [max_length start_char _section _paragraph_range _read_headings]}]
   (let [result (or (read-url-markdown-new url)
                    (read-url-jina url)
+                   (read-url-skim url)
                    (read-url-local url))]
     (if-not result
       {:error true :message (str "Failed to fetch URL: " url)}

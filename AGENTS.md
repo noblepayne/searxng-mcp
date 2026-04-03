@@ -15,8 +15,9 @@ A Babashka Streamable HTTP MCP server wrapping SearXNG search and URL-to-markdow
 
 ```
 searxng-mcp/
-├── searxng_mcp.bb              # Single-file MCP server (the whole thing)
-├── bb.edn                      # Tasks: run, start, test, lint, health
+├── searxng_mcp.bb              # Source MCP server (dev, with git deps)
+├── searxng_mcp_bundled.clj     # Committed uberscript (Nix ships this)
+├── bb.edn                      # Tasks: run, start, test, lint, health, bundle
 ├── flake.nix                   # Nix package + NixOS service module
 ├── README.md                   # This file
 ├── AGENTS.md                   # This file (philosophy & workflows)
@@ -157,7 +158,7 @@ SearXNG HTTP client (searxng-search!)
 │
 HTML → Markdown (html->markdown, regex fallback)
 │
-URL Reader (3-tier: markdown.new → Jina → local)
+URL Reader (4-tier: markdown.new → Jina → skim → local)
 │
 Tool implementations (tool-search, tool-read-url, tool-read-urls)
 │
@@ -176,6 +177,7 @@ Entry point (-main)
 
 1. **markdown.new** — `GET https://markdown.new/api/convert?url=<url>` (500/day per IP, no key)
 1. **Jina Reader** — `GET https://r.jina.ai/<url>` (free tier, optional API key)
+1. **skim (Mozilla Readability)** — jsoup → hickory → markdown via [skim](https://github.com/noblepayne/skim) (bb-native, unlimited)
 1. **Local regex stripper** — strips script/style, converts basic HTML elements to markdown (unlimited, always works)
 
 ### Error Handling
@@ -198,9 +200,39 @@ Tool errors return `{:error true :message "..."}` which dispatch-tool wraps in a
 bb test
 ```
 
+### Building the Uberscript
+
+The Nix package ships `searxng_mcp_bundled.clj` — a single committed file that bundles
+all dependencies (skim, hickory, cheshire) via `bb uberscript`. This is **Level 1** from
+the [bb-nix-packaging-spectrum](../Documents/bb-nix-packaging-spectrum.md): committed
+artifact, zero Nix complexity, no network during build.
+
+```bash
+# Regenerate the bundled file (when skim or deps change):
+bb bundle
+
+# This runs:
+#   1. bb uberscript searxng_mcp_bundled.clj -m searxng-mcp
+#   2. carve --opts '{:paths ["searxng_mcp_bundled.clj"] :aggressive true}'
+#
+# Then commit the result:
+#   git add searxng_mcp_bundled.clj
+#   git commit -m "Regenerate uberscript"
+```
+
+**Why carve?** The uberscript is ~2400 lines raw, ~1600 after carving (34% reduction).
+Carve removes unused vars from skim/hickory that our thin usage doesn't call (debug output,
+extra conversion functions, etc.). The `hickory-bundle` namespace must `:require [hickory.core]`
+for carve to see the dependency — without it, carve strips `hickory.core` entirely.
+
+**Build alternatives** (documented in scratch pad `build-options`):
+- **FOD** — Fixed-Output Derivation lets Nix run `bb uberscript` with network access,
+  but requires hash-chasing on every change
+- **fetchgit + classpath** — Nix owns all pinning via `rev` + `sha256` per dep,
+  no committed artifact, but more Nix complexity
+
 ### v1.5 (Planned)
 
-- Swap regex HTML stripper for hickory + jsoup (jsoup is built into babashka since 1.12.195)
 - Add `read_urls` concurrency controls (max parallel, per-URL timeouts)
 - Consider `search_and_read` composite tool (search + auto-read top N results)
 
